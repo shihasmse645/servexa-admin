@@ -41,8 +41,12 @@ export function Sidebar({ currentPath }: SidebarProps) {
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <Wrench className="w-6 h-6 text-sidebar-primary-foreground" />
+          <div className="w-10 h-10 rounded-lg overflow-hidden">
+            <img
+              src="/applogo.png"
+              alt="Servexa Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="flex flex-col">
             <h1 className="font-bold text-lg">Servexa Neo</h1>

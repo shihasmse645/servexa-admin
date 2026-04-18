@@ -93,46 +93,12 @@ export default function ServiceRequests() {
   });
   const filteredTechs = technicians.filter(
     (tech) =>
-      tech.is_available &&
+      tech.is_active &&                // ✅ NEW (important)
+      tech.is_available &&             // existing
       tech.service_type_id === Number(formData.service_type_id)
   );
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setPageLoading(true); // 👈 start
 
-        const { data: requestsData, error: reqError } = await supabase
-          .from("service_requests")
-          .select(`
-        *,
-        statuses(name),
-        technicians(name)
-      `);
-
-        if (reqError) throw reqError;
-
-        const { data: typesData, error: typeError } = await supabase
-          .from("service_types")
-          .select("*");
-
-        if (typeError) throw typeError;
-
-        const { data: techData, error: techError } = await supabase
-          .from("technicians")
-          .select("*");
-
-        if (techError) throw techError;
-
-        setRequests(requestsData || []);
-        setServiceTypes(typesData || []);
-        setTechnicians(techData || []);
-
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setPageLoading(false); // 👈 stop
-      }
-    };
 
     fetchData();
   }, []);
@@ -167,12 +133,6 @@ export default function ServiceRequests() {
 
       if (error) throw error;
 
-      if (hasTechnician) {
-        await supabase
-          .from("technicians")
-          .update({ is_available: false })
-          .eq("id", formData.technician_id);
-      }
 
       toast.success("Request created successfully");
 
@@ -236,6 +196,28 @@ export default function ServiceRequests() {
       setPageLoading(false); // 👈 stop
     }
   };
+  const handleStatusChange = async (request: any, id: string, statusId: number) => {
+    // ❌ prevent invalid transition
+    if (statusId === 2 && !request.technician_id) {
+      toast.error("Assign technician before marking as In Progress");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("service_requests")
+        .update({ status_id: statusId })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Status updated");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      // toast.error("Failed to update status");
+      toast.error(err.message);
+    }
+  };
   const handleAssign = async (technicianId: string) => {
     if (!selectedRequest) return;
 
@@ -252,12 +234,7 @@ export default function ServiceRequests() {
 
       if (assignError) throw assignError;
 
-      const { error: techError } = await supabase
-        .from("technicians")
-        .update({ is_available: false })
-        .eq("id", technicianId);
-
-      if (techError) throw techError;
+  
 
       await fetchData();
       setTechModalOpen(false);
@@ -388,6 +365,7 @@ export default function ServiceRequests() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
+                        {/* View */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -397,27 +375,43 @@ export default function ServiceRequests() {
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {/* <Button
+
+                        {/* Delete */}
+                        <Button
+                          onClick={() => handleDelete(request.id)}
                           variant="ghost"
                           size="sm"
-                          title="Edit"
-                          className="h-8 w-8 p-0"
-                          onClick={() => navigate(`/service-requests/edit/${request.id}`)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button> */}
-                        <Button onClick={() => handleDelete(request.id)}
-                           variant="ghost"
-                          size="sm"
                           title="Delete"
-                          className="h-8 w-8 p-0">
+                          className="h-8 w-8 p-0"
+                        >
                           🗑
                         </Button>
+
+                        {/* Status Dropdown */}
+                        <Select
+                          value={String(request.status_id)}
+                          onValueChange={(value) =>
+                            handleStatusChange(request, request.id, Number(value))
+                          }
+                          disabled={request.status_id === 3} // ❌ disable if done
+                        >
+                          <SelectTrigger className="h-8 w-[110px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Pending</SelectItem>
+                            <SelectItem value="2">In Progress</SelectItem>
+                            <SelectItem value="3">Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Assign */}
                         <Button
                           variant="ghost"
                           size="sm"
                           title="Assign technician"
                           className="h-8 w-8 p-0"
+                          disabled={request.status_id !== 1} // ✅ only pending allowed
                           onClick={() => {
                             setSelectedRequest(request);
                             setTechModalOpen(true);
@@ -559,7 +553,7 @@ export default function ServiceRequests() {
                   <div className="h-5 w-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
                 </div>
               )}
-              <SelectTrigger>                     
+              <SelectTrigger>
                 <SelectValue placeholder="Select technician" />
               </SelectTrigger>
               <SelectContent>

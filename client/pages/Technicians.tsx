@@ -25,23 +25,11 @@ import {
   Wrench,
 } from "lucide-react";
 
-// Mock data
 
-const serviceTypeOptions = [
-  { value: "all", label: "All Types" },
-  { value: "plumbing", label: "Plumbing" },
-  { value: "electrical", label: "Electrical" },
-  { value: "hvac", label: "HVAC" },
-  { value: "carpentry", label: "Carpentry" },
-];
 
 export default function Technicians() {
   const [technicians, setTechnicians] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterType, setFilterType] = useState("all");
-  const [filterAvailability, setFilterAvailability] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
-  // const [technicians, setTechnicians] = useState(mockTechnicians);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -59,13 +47,13 @@ export default function Technicians() {
     const { data } = await supabase.from("service_types").select("*");
     setServiceTypes(data || []);
   };
-  const toggleAvailability = async (id: string, current: boolean) => {
+  const toggleActive = async (id: string, current: boolean) => {
     try {
       setToggleLoading(true);
 
       const { error } = await supabase
         .from("technicians")
-        .update({ is_available: !current })
+        .update({ is_active: !current })
         .eq("id", id);
 
       if (error) throw error;
@@ -78,20 +66,8 @@ export default function Technicians() {
     }
   };
 
-  // const filteredTechnicians = technicians.filter((tech) => {
-  //   const typeMatch =
-  //     filterType === "all" || tech.serviceType.toLowerCase() === filterType;
-  //   const availMatch =
-  //     filterAvailability === "all" ||
-  //     (filterAvailability === "available" && tech.is_available) ||
-  //     (filterAvailability === "unavailable" && !tech.is_available);
-  //   const searchMatch =
-  //     tech.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     tech.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     tech.phone.includes(searchTerm);
 
-  //   return typeMatch && availMatch && searchMatch;
-  // });
+
   useEffect(() => {
     fetchTechnicians();
     fetchServiceTypes();
@@ -179,36 +155,36 @@ export default function Technicians() {
       setDeleteLoading(null);
     }
   };
- const fetchTechnicians = async (search = "") => {
-  try {
-    setLoading(true);
+  const fetchTechnicians = async (search = "") => {
+    try {
+      setLoading(true);
 
-    let query = supabase
-      .from("technicians")
-      .select(`
+      let query = supabase
+        .from("technicians")
+        .select(`
         *,
         service_types(name)
       `)
-      .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true });
 
-    // 🔍 Apply search only if value exists
-    if (search.trim()) {
-      query = query.or(
-        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
-      );
+      // 🔍 Apply search only if value exists
+      if (search.trim()) {
+        query = query.or(
+          `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
+        );
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      setTechnicians(data || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-
-    setTechnicians(data || []);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   return (
 
     <MainLayout>
@@ -256,15 +232,7 @@ export default function Technicians() {
                       {tech.service_types?.name || "N/A"}
                     </p>
                   </div>
-                  {/* <div className="text-right">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-semibold">{tech.rating}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {tech.reviewCount} reviews
-                    </p>
-                  </div> */}
+
                 </div>
 
                 {/* Contact Info */}
@@ -281,22 +249,29 @@ export default function Technicians() {
 
                 {/* Availability */}
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Availability</p>
-                    <p
-                      className={`text-xs ${tech.is_available
+                  <p className="text-sm font-medium">Status</p>
+
+                  <p
+                    className={`text-xs ${tech.is_active
+                      ? tech.is_available
                         ? "text-green-600"
-                        : "text-red-600"
-                        }`}
-                    >
-                      {tech.is_available ? "Available" : "Unavailable"}
-                    </p>
-                  </div>
+                        : "text-yellow-600"
+                      : "text-red-600"
+                      }`}
+                  >
+                    {!tech.is_active
+                      ? "Inactive"
+                      : tech.is_available
+                        ? "Available"
+                        : "On Work"}
+                  </p>
+
                   <Switch
-                    checked={tech.is_available}
+                    checked={tech.is_active}
                     disabled={toggleLoading}
-                    onCheckedChange={() => toggleAvailability(tech.id, tech.is_available)}
+                    onCheckedChange={() => toggleActive(tech.id, tech.is_active)}
                   />
+
                 </div>
 
                 {/* Actions */}
@@ -320,10 +295,7 @@ export default function Technicians() {
                     <Edit2 className="w-4 h-4" />
                     Edit
                   </Button>
-                  {/* <Button variant="outline" size="sm" className="flex-1 gap-1">
-                    <Edit2 className="w-4 h-4" />
-                    Edit
-                  </Button> */}
+
                   <Button
                     variant="outline"
                     size="sm"
